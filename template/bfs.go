@@ -1,5 +1,7 @@
 package template
 
+import _ "embed"
+
 /*
 from collections import deque
 
@@ -16,3 +18,6 @@ while q:
       q.append(i)
       visited[i] = True
 */
+
+//go:embed project/template.go
+var Template []byte
