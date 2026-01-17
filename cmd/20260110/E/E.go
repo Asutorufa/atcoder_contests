@@ -22,9 +22,3 @@ func readString() string {
 	fmt.Fscan(br, &x)
 	return x
 }
-
-func readX[T any]() T {
-	var x T
-	fmt.Fscan(br, &x)
-	return x
-}

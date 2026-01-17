@@ -7,6 +7,16 @@ import (
 )
 
 func main() {
+	p := readInt()
+	q := readInt()
+	x := readInt()
+	y := readInt()
+
+	if x >= p && x < p+100 && y >= q && y < q+100 {
+		fmt.Println("Yes")
+	} else {
+		fmt.Println("No")
+	}
 }
 
 var br = bufio.NewReader(os.Stdin)
@@ -19,12 +29,6 @@ func readInt() int {
 
 func readString() string {
 	var x string
-	fmt.Fscan(br, &x)
-	return x
-}
-
-func readX[T any]() T {
-	var x T
 	fmt.Fscan(br, &x)
 	return x
 }
