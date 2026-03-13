@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -26,45 +27,53 @@ func loadEnv() {
 func main() {
 	loadEnv()
 
-	// Parse flags and remove them from os.Args
-	var filteredArgs []string
-	for _, arg := range os.Args {
-		if strings.HasPrefix(arg, "--cookie=") {
-			cookieStr := strings.TrimPrefix(arg, "--cookie=")
-			if strings.HasPrefix(cookieStr, "REVEL_SESSION=") {
-				cookieStr = strings.TrimPrefix(cookieStr, "REVEL_SESSION=")
-			}
-			os.Setenv("REVEL_SESSION", cookieStr)
-		} else {
-			filteredArgs = append(filteredArgs, arg)
-		}
-	}
-	os.Args = filteredArgs
-
 	if len(os.Args) < 2 {
 		fmt.Println("Usage:")
-		fmt.Println("  autotool init <contest_id> [--cookie=\"REVEL_SESSION=...\"]")
+		fmt.Println("  autotool init [flags] <contest_id>")
 		fmt.Println("  autotool test <problem_label>")
 		os.Exit(1)
 	}
+
+	initCmd := flag.NewFlagSet("init", flag.ExitOnError)
+	cookieFlag := initCmd.String("cookie", "", "Session cookie (e.g., REVEL_SESSION=...)")
+
+	testCmd := flag.NewFlagSet("test", flag.ExitOnError)
 
 	command := os.Args[1]
 
 	switch command {
 	case "init":
-		if len(os.Args) < 3 {
-			fmt.Println("Usage: autotool init <contest_id> [--cookie=\"REVEL_SESSION=...\"]")
+		initCmd.Parse(os.Args[2:])
+		if initCmd.NArg() < 1 {
+			fmt.Println("Usage: autotool init [flags] <contest_id>")
+			initCmd.PrintDefaults()
 			os.Exit(1)
 		}
-		contestID := os.Args[2]
-		initContest(contestID)
+
+		if *cookieFlag != "" {
+			cookieStr := *cookieFlag
+			if strings.HasPrefix(cookieStr, "REVEL_SESSION=") {
+				cookieStr = strings.TrimPrefix(cookieStr, "REVEL_SESSION=")
+			}
+			os.Setenv("REVEL_SESSION", cookieStr)
+		}
+
+		contestID := initCmd.Arg(0)
+		if err := initContest(contestID); err != nil {
+			fmt.Printf("Init failed: %v\n", err)
+			os.Exit(1)
+		}
 	case "test":
-		if len(os.Args) < 3 {
+		testCmd.Parse(os.Args[2:])
+		if testCmd.NArg() < 1 {
 			fmt.Println("Usage: autotool test <problem_label>")
 			os.Exit(1)
 		}
-		problemLabel := os.Args[2]
-		testProblem(problemLabel)
+		problemLabel := testCmd.Arg(0)
+		if err := testProblem(problemLabel); err != nil {
+			fmt.Printf("Test failed: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		os.Exit(1)

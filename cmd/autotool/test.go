@@ -34,13 +34,12 @@ func findLatestContestDir() string {
 	return filepath.Join("cmd", dirs[len(dirs)-1])
 }
 
-func testProblem(problemLabel string) {
+func testProblem(problemLabel string) error {
 	fmt.Printf("Testing problem %s...\n", problemLabel)
 
 	latestDir := findLatestContestDir()
 	if latestDir == "" {
-		fmt.Println("No contest directory found (expected cmd/YYYYMMDD_<contest_id>).")
-		os.Exit(1)
+		return fmt.Errorf("no contest directory found (expected cmd/YYYYMMDD_<contest_id>)")
 	}
 
 	fmt.Printf("Using contest directory: %s\n", latestDir)
@@ -50,12 +49,10 @@ func testProblem(problemLabel string) {
 	testDir := filepath.Join(taskDir, "test")
 
 	if _, err := os.Stat(goFile); os.IsNotExist(err) {
-		fmt.Printf("Go file not found: %s\n", goFile)
-		os.Exit(1)
+		return fmt.Errorf("Go file not found: %s", goFile)
 	}
 	if _, err := os.Stat(testDir); os.IsNotExist(err) {
-		fmt.Printf("Test directory not found: %s\n", testDir)
-		os.Exit(1)
+		return fmt.Errorf("Test directory not found: %s", testDir)
 	}
 
 	binFile := filepath.Join(taskDir, "exec_bin")
@@ -68,15 +65,13 @@ func testProblem(problemLabel string) {
 	buildCmd.Stderr = os.Stderr
 	buildCmd.Stdout = os.Stdout
 	if err := buildCmd.Run(); err != nil {
-		fmt.Printf("Compilation failed: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("compilation failed: %w", err)
 	}
 	defer os.Remove(binFile)
 
 	entries, err := os.ReadDir(testDir)
 	if err != nil {
-		fmt.Printf("Failed to read test directory: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to read test directory: %w", err)
 	}
 
 	passed := 0
@@ -139,6 +134,7 @@ func testProblem(problemLabel string) {
 
 	fmt.Printf("\nSummary: %d / %d tests passed.\n", passed, total)
 	if passed != total {
-		os.Exit(1)
+		return fmt.Errorf("not all tests passed")
 	}
+	return nil
 }

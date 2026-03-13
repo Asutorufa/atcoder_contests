@@ -12,9 +12,12 @@ import (
 	"time"
 )
 
-func getHTTPClient() *http.Client {
-	return &http.Client{}
-}
+var httpClient = &http.Client{}
+
+var (
+	reIn  = regexp.MustCompile(`(?is)<h3>Sample Input (\d+)</h3>.*?<pre>(.*?)</pre>`)
+	reOut = regexp.MustCompile(`(?is)<h3>Sample Output (\d+)</h3>.*?<pre>(.*?)</pre>`)
+)
 
 func fetchWithAuth(url string) (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -27,8 +30,7 @@ func fetchWithAuth(url string) (string, error) {
 		req.Header.Set("Cookie", "REVEL_SESSION="+sessionCookie)
 	}
 
-	client := getHTTPClient()
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -72,9 +74,6 @@ type TestCase struct {
 }
 
 func parseTestCases(html string) []TestCase {
-	reIn := regexp.MustCompile(`(?is)<h3>Sample Input (\d+)</h3>.*?<pre>(.*?)</pre>`)
-	reOut := regexp.MustCompile(`(?is)<h3>Sample Output (\d+)</h3>.*?<pre>(.*?)</pre>`)
-
 	ins := reIn.FindAllStringSubmatch(html, -1)
 	outs := reOut.FindAllStringSubmatch(html, -1)
 
@@ -103,20 +102,18 @@ func parseTestCases(html string) []TestCase {
 	return tcs
 }
 
-func initContest(contestID string) {
+func initContest(contestID string) error {
 	fmt.Printf("Initializing contest %s...\n", contestID)
 
 	tasksURL := fmt.Sprintf("https://atcoder.jp/contests/%s/tasks", contestID)
 	html, err := fetchWithAuth(tasksURL)
 	if err != nil {
-		fmt.Printf("Failed to fetch tasks list: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to fetch tasks list: %w", err)
 	}
 
 	tasks := parseTasks(contestID, html)
 	if len(tasks) == 0 {
-		fmt.Printf("No tasks found for contest %s. Ensure the contest exists and check REVEL_SESSION if it's ongoing.\n", contestID)
-		os.Exit(1)
+		return fmt.Errorf("no tasks found for contest %s. Ensure the contest exists and check REVEL_SESSION if it's ongoing", contestID)
 	}
 
 	dateStr := time.Now().Format("20060102")
@@ -129,7 +126,7 @@ func initContest(contestID string) {
 		label := task.Label
 		taskDir := filepath.Join(baseDir, label)
 
-		if err := os.MkdirAll(taskDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(taskDir, 0755); err != nil {
 			fmt.Printf("Failed to create dir %s: %v\n", taskDir, err)
 			continue
 		}
@@ -152,14 +149,18 @@ func initContest(contestID string) {
 		tcs := parseTestCases(taskHTML)
 		if len(tcs) > 0 {
 			testDir := filepath.Join(taskDir, "test")
-			os.MkdirAll(testDir, os.ModePerm)
+			os.MkdirAll(testDir, 0755)
 
 			for i, tc := range tcs {
 				inFile := filepath.Join(testDir, fmt.Sprintf("in_%d.txt", i+1))
 				outFile := filepath.Join(testDir, fmt.Sprintf("out_%d.txt", i+1))
 
-				os.WriteFile(inFile, []byte(tc.Input), 0644)
-				os.WriteFile(outFile, []byte(tc.Output), 0644)
+				if err := os.WriteFile(inFile, []byte(tc.Input), 0644); err != nil {
+					fmt.Printf("Error writing file %s: %v\n", inFile, err)
+				}
+				if err := os.WriteFile(outFile, []byte(tc.Output), 0644); err != nil {
+					fmt.Printf("Error writing file %s: %v\n", outFile, err)
+				}
 			}
 			fmt.Printf("Downloaded %d test cases for %s (%s).\n", len(tcs), label, task.ID)
 		} else {
@@ -167,4 +168,5 @@ func initContest(contestID string) {
 		}
 	}
 	fmt.Println("Initialization complete.")
+	return nil
 }
