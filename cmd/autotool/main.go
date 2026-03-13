@@ -30,7 +30,7 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage:")
 		fmt.Println("  autotool init [flags] <contest_id>")
-		fmt.Println("  autotool test <problem_label>")
+		fmt.Println("  autotool test [flags] <problem_label>")
 		os.Exit(1)
 	}
 
@@ -38,6 +38,7 @@ func main() {
 	cookieFlag := initCmd.String("cookie", "", "Session cookie (e.g., REVEL_SESSION=...)")
 
 	testCmd := flag.NewFlagSet("test", flag.ExitOnError)
+	contestFlag := testCmd.String("contest", "", "Specify a specific contest ID to test (e.g., abc300)")
 
 	command := os.Args[1]
 
@@ -66,11 +67,12 @@ func main() {
 	case "test":
 		testCmd.Parse(os.Args[2:])
 		if testCmd.NArg() < 1 {
-			fmt.Println("Usage: autotool test <problem_label>")
+			fmt.Println("Usage: autotool test [flags] <problem_label>")
+			testCmd.PrintDefaults()
 			os.Exit(1)
 		}
 		problemLabel := testCmd.Arg(0)
-		if err := testProblem(problemLabel); err != nil {
+		if err := testProblem(problemLabel, *contestFlag); err != nil {
 			fmt.Printf("Test failed: %v\n", err)
 			os.Exit(1)
 		}

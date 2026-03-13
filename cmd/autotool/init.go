@@ -102,7 +102,30 @@ func parseTestCases(html string) []TestCase {
 	return tcs
 }
 
+func findContestDirByID(contestID string) string {
+	entries, err := os.ReadDir("cmd")
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			name := entry.Name()
+			if strings.HasSuffix(name, "_"+contestID) {
+				return filepath.Join("cmd", name)
+			}
+		}
+	}
+	return ""
+}
+
 func initContest(contestID string) error {
+	existingDir := findContestDirByID(contestID)
+	if existingDir != "" {
+		fmt.Printf("Contest directory %s already exists. Skipping initialization.\n", existingDir)
+		return nil
+	}
+
 	fmt.Printf("Initializing contest %s...\n", contestID)
 
 	tasksURL := fmt.Sprintf("https://atcoder.jp/contests/%s/tasks", contestID)

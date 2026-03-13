@@ -34,17 +34,25 @@ func findLatestContestDir() string {
 	return filepath.Join("cmd", dirs[len(dirs)-1])
 }
 
-func testProblem(problemLabel string) error {
+func testProblem(problemLabel string, specificContestID string) error {
 	fmt.Printf("Testing problem %s...\n", problemLabel)
 
-	latestDir := findLatestContestDir()
-	if latestDir == "" {
-		return fmt.Errorf("no contest directory found (expected cmd/YYYYMMDD_<contest_id>)")
+	var targetDir string
+	if specificContestID != "" {
+		targetDir = findContestDirByID(specificContestID)
+		if targetDir == "" {
+			return fmt.Errorf("no contest directory found for %s", specificContestID)
+		}
+	} else {
+		targetDir = findLatestContestDir()
+		if targetDir == "" {
+			return fmt.Errorf("no contest directory found (expected cmd/YYYYMMDD_<contest_id>)")
+		}
 	}
 
-	fmt.Printf("Using contest directory: %s\n", latestDir)
+	fmt.Printf("Using contest directory: %s\n", targetDir)
 
-	taskDir := filepath.Join(latestDir, problemLabel)
+	taskDir := filepath.Join(targetDir, problemLabel)
 	goFile := filepath.Join(taskDir, problemLabel+".go")
 	testDir := filepath.Join(taskDir, "test")
 
