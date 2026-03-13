@@ -1,0 +1,144 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+func findLatestContestDir() string {
+	entries, err := os.ReadDir("cmd")
+	if err != nil {
+		return ""
+	}
+
+	var dirs []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			name := entry.Name()
+			if strings.HasPrefix(name, "20") && strings.Contains(name, "_") {
+				dirs = append(dirs, name)
+			}
+		}
+	}
+
+	if len(dirs) == 0 {
+		return ""
+	}
+
+	sort.Strings(dirs)
+	return filepath.Join("cmd", dirs[len(dirs)-1])
+}
+
+func testProblem(problemLabel string) {
+	fmt.Printf("Testing problem %s...\n", problemLabel)
+
+	latestDir := findLatestContestDir()
+	if latestDir == "" {
+		fmt.Println("No contest directory found (expected cmd/YYYYMMDD_<contest_id>).")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Using contest directory: %s\n", latestDir)
+
+	taskDir := filepath.Join(latestDir, problemLabel)
+	goFile := filepath.Join(taskDir, problemLabel+".go")
+	testDir := filepath.Join(taskDir, "test")
+
+	if _, err := os.Stat(goFile); os.IsNotExist(err) {
+		fmt.Printf("Go file not found: %s\n", goFile)
+		os.Exit(1)
+	}
+	if _, err := os.Stat(testDir); os.IsNotExist(err) {
+		fmt.Printf("Test directory not found: %s\n", testDir)
+		os.Exit(1)
+	}
+
+	binFile := filepath.Join(taskDir, "exec_bin")
+	if os.PathSeparator == '\\' {
+		binFile += ".exe"
+	}
+
+	fmt.Printf("Compiling %s...\n", goFile)
+	buildCmd := exec.Command("go", "build", "-o", binFile, goFile)
+	buildCmd.Stderr = os.Stderr
+	buildCmd.Stdout = os.Stdout
+	if err := buildCmd.Run(); err != nil {
+		fmt.Printf("Compilation failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.Remove(binFile)
+
+	entries, err := os.ReadDir(testDir)
+	if err != nil {
+		fmt.Printf("Failed to read test directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	passed := 0
+	total := 0
+
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "in_") {
+			inFileName := entry.Name()
+			id := strings.TrimPrefix(inFileName, "in_")
+			outFileName := "out_" + id
+
+			inFile := filepath.Join(testDir, inFileName)
+			outFile := filepath.Join(testDir, outFileName)
+
+			if _, err := os.Stat(outFile); os.IsNotExist(err) {
+				continue
+			}
+
+			total++
+
+			inContent, err := os.ReadFile(inFile)
+			if err != nil {
+				fmt.Printf("Test %s: Error reading input: %v\n", id, err)
+				continue
+			}
+
+			expectedContent, err := os.ReadFile(outFile)
+			if err != nil {
+				fmt.Printf("Test %s: Error reading output: %v\n", id, err)
+				continue
+			}
+
+			runCmd := exec.Command(binFile)
+			runCmd.Stdin = bytes.NewReader(inContent)
+			var stdout, stderr bytes.Buffer
+			runCmd.Stdout = &stdout
+			runCmd.Stderr = &stderr
+
+			err = runCmd.Run()
+
+			if err != nil {
+				fmt.Printf("Test %s: Runtime error: %v\n", id, err)
+				fmt.Printf("Stderr:\n%s\n", stderr.String())
+				continue
+			}
+
+			actual := strings.TrimSpace(stdout.String())
+			expected := strings.TrimSpace(string(expectedContent))
+
+			if actual == expected {
+				fmt.Printf("Test %s: PASSED\n", id)
+				passed++
+			} else {
+				fmt.Printf("Test %s: FAILED\n", id)
+				fmt.Printf("Expected:\n%s\n", expected)
+				fmt.Printf("Actual:\n%s\n", actual)
+			}
+		}
+	}
+
+	fmt.Printf("\nSummary: %d / %d tests passed.\n", passed, total)
+	if passed != total {
+		os.Exit(1)
+	}
+}
