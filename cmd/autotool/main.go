@@ -7,6 +7,15 @@ import (
 	"strings"
 )
 
+type TestCase struct {
+	Input  string `toml:"input,multiline"`
+	Output string `toml:"output,multiline"`
+}
+
+type Samples struct {
+	TestCases []TestCase `toml:"test"`
+}
+
 func loadEnv() {
 	content, err := os.ReadFile(".env")
 	if err == nil {
@@ -53,8 +62,8 @@ func main() {
 
 		if *cookieFlag != "" {
 			cookieStr := *cookieFlag
-			if strings.HasPrefix(cookieStr, "REVEL_SESSION=") {
-				cookieStr = strings.TrimPrefix(cookieStr, "REVEL_SESSION=")
+			if after, ok := strings.CutPrefix(cookieStr, "REVEL_SESSION="); ok {
+				cookieStr = after
 			}
 			os.Setenv("REVEL_SESSION", cookieStr)
 		}

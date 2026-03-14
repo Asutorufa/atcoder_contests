@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 func findLatestContestDir() string {
@@ -54,13 +57,68 @@ func testProblem(problemLabel string, specificContestID string) error {
 
 	taskDir := filepath.Join(targetDir, problemLabel)
 	goFile := filepath.Join(taskDir, problemLabel+".go")
+	tomlFile := filepath.Join(taskDir, "samples.toml")
+	jsonFile := filepath.Join(taskDir, "samples.json")
 	testDir := filepath.Join(taskDir, "test")
 
 	if _, err := os.Stat(goFile); os.IsNotExist(err) {
-		return fmt.Errorf("Go file not found: %s", goFile)
+		return fmt.Errorf("go file not found: %s", goFile)
 	}
-	if _, err := os.Stat(testDir); os.IsNotExist(err) {
-		return fmt.Errorf("Test directory not found: %s", testDir)
+
+	var tcs []TestCase
+	if _, err := os.Stat(tomlFile); err == nil {
+		var s Samples
+		data, err := os.ReadFile(tomlFile)
+		if err != nil {
+			return err
+		}
+		if err := toml.Unmarshal(data, &s); err != nil {
+			return fmt.Errorf("failed to parse samples.toml: %w", err)
+		}
+		tcs = s.TestCases
+	} else if _, err := os.Stat(jsonFile); err == nil {
+		jsonContent, err := os.ReadFile(jsonFile)
+		if err != nil {
+			return fmt.Errorf("failed to read samples.json: %w", err)
+		}
+		if err := json.Unmarshal(jsonContent, &tcs); err != nil {
+			return fmt.Errorf("failed to parse samples.json: %w", err)
+		}
+	} else if _, err := os.Stat(testDir); err == nil {
+		// Fallback to old directory structure
+		entries, err := os.ReadDir(testDir)
+		if err != nil {
+			return fmt.Errorf("failed to read test directory: %w", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasPrefix(entry.Name(), "in_") {
+				inFileName := entry.Name()
+				id := strings.TrimPrefix(inFileName, "in_")
+				outFileName := "out_" + id
+
+				inFile := filepath.Join(testDir, inFileName)
+				outFile := filepath.Join(testDir, outFileName)
+
+				if _, err := os.Stat(outFile); os.IsNotExist(err) {
+					continue
+				}
+
+				inContent, err := os.ReadFile(inFile)
+				if err != nil {
+					continue
+				}
+				outContent, err := os.ReadFile(outFile)
+				if err != nil {
+					continue
+				}
+				tcs = append(tcs, TestCase{
+					Input:  string(inContent),
+					Output: string(outContent),
+				})
+			}
+		}
+	} else {
+		return fmt.Errorf("neither samples.toml, samples.json nor test directory found in %s", taskDir)
 	}
 
 	binFile := filepath.Join(taskDir, "exec_bin")
@@ -77,66 +135,36 @@ func testProblem(problemLabel string, specificContestID string) error {
 	}
 	defer os.Remove(binFile)
 
-	entries, err := os.ReadDir(testDir)
-	if err != nil {
-		return fmt.Errorf("failed to read test directory: %w", err)
-	}
 
 	passed := 0
-	total := 0
+	total := len(tcs)
 
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "in_") {
-			inFileName := entry.Name()
-			id := strings.TrimPrefix(inFileName, "in_")
-			outFileName := "out_" + id
+	for i, tc := range tcs {
+		id := fmt.Sprintf("%d", i+1)
 
-			inFile := filepath.Join(testDir, inFileName)
-			outFile := filepath.Join(testDir, outFileName)
+		runCmd := exec.Command(binFile)
+		runCmd.Stdin = strings.NewReader(tc.Input)
+		var stdout, stderr bytes.Buffer
+		runCmd.Stdout = &stdout
+		runCmd.Stderr = &stderr
 
-			if _, err := os.Stat(outFile); os.IsNotExist(err) {
-				continue
-			}
+		err := runCmd.Run()
+		if err != nil {
+			fmt.Printf("Test %s: Runtime error: %v\n", id, err)
+			fmt.Printf("Stderr:\n%s\n", stderr.String())
+			continue
+		}
 
-			total++
+		actual := strings.TrimSpace(stdout.String())
+		expected := strings.TrimSpace(tc.Output)
 
-			inContent, err := os.ReadFile(inFile)
-			if err != nil {
-				fmt.Printf("Test %s: Error reading input: %v\n", id, err)
-				continue
-			}
-
-			expectedContent, err := os.ReadFile(outFile)
-			if err != nil {
-				fmt.Printf("Test %s: Error reading output: %v\n", id, err)
-				continue
-			}
-
-			runCmd := exec.Command(binFile)
-			runCmd.Stdin = bytes.NewReader(inContent)
-			var stdout, stderr bytes.Buffer
-			runCmd.Stdout = &stdout
-			runCmd.Stderr = &stderr
-
-			err = runCmd.Run()
-
-			if err != nil {
-				fmt.Printf("Test %s: Runtime error: %v\n", id, err)
-				fmt.Printf("Stderr:\n%s\n", stderr.String())
-				continue
-			}
-
-			actual := strings.TrimSpace(stdout.String())
-			expected := strings.TrimSpace(string(expectedContent))
-
-			if actual == expected {
-				fmt.Printf("Test %s: PASSED\n", id)
-				passed++
-			} else {
-				fmt.Printf("Test %s: FAILED\n", id)
-				fmt.Printf("Expected:\n%s\n", expected)
-				fmt.Printf("Actual:\n%s\n", actual)
-			}
+		if actual == expected {
+			fmt.Printf("Test %s: PASSED\n", id)
+			passed++
+		} else {
+			fmt.Printf("Test %s: FAILED\n", id)
+			fmt.Printf("Expected:\n%s\n", expected)
+			fmt.Printf("Actual:\n%s\n", actual)
 		}
 	}
 

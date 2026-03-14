@@ -5,6 +5,7 @@ go 1.25.1
 require (
 	github.com/emirpasic/gods v1.18.1
 	github.com/liyue201/gostl v1.2.0
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/stretchr/testify v1.7.0
 )
 

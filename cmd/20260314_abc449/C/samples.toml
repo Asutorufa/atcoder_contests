@@ -1,0 +1,26 @@
+[[test]]
+input = """
+6 2 4
+aabcba
+"""
+output = """
+2
+"""
+
+[[test]]
+input = """
+9 3 6
+aaaaaaaaa
+"""
+output = """
+18
+"""
+
+[[test]]
+input = """
+10 2 6
+aabbccaabb
+"""
+output = """
+6
+"""

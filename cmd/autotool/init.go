@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 var httpClient = &http.Client{}
@@ -68,10 +70,6 @@ func parseTasks(contestID string, html string) []Task {
 	return tasks
 }
 
-type TestCase struct {
-	Input  string
-	Output string
-}
 
 func parseTestCases(html string) []TestCase {
 	ins := reIn.FindAllStringSubmatch(html, -1)
@@ -87,8 +85,8 @@ func parseTestCases(html string) []TestCase {
 	seenInput := make(map[string]bool)
 	for _, in := range ins {
 		id := in[1]
-		inStr := strings.TrimLeft(in[2], "\r\n")
-		outStr := outMap[id]
+		inStr := strings.ReplaceAll(strings.TrimLeft(in[2], "\r\n"), "\r\n", "\n")
+		outStr := strings.ReplaceAll(outMap[id], "\r\n", "\n")
 
 		if !seenInput[inStr] {
 			seenInput[inStr] = true
@@ -171,21 +169,22 @@ func initContest(contestID string) error {
 
 		tcs := parseTestCases(taskHTML)
 		if len(tcs) > 0 {
-			testDir := filepath.Join(taskDir, "test")
-			os.MkdirAll(testDir, 0755)
-
-			for i, tc := range tcs {
-				inFile := filepath.Join(testDir, fmt.Sprintf("in_%d.txt", i+1))
-				outFile := filepath.Join(testDir, fmt.Sprintf("out_%d.txt", i+1))
-
-				if err := os.WriteFile(inFile, []byte(tc.Input), 0644); err != nil {
-					fmt.Printf("Error writing file %s: %v\n", inFile, err)
-				}
-				if err := os.WriteFile(outFile, []byte(tc.Output), 0644); err != nil {
-					fmt.Printf("Error writing file %s: %v\n", outFile, err)
-				}
+			tomlPath := filepath.Join(taskDir, "samples.toml")
+			f, err := os.Create(tomlPath)
+			if err != nil {
+				fmt.Printf("Error creating file %s: %v\n", tomlPath, err)
+				continue
 			}
-			fmt.Printf("Downloaded %d test cases for %s (%s).\n", len(tcs), label, task.ID)
+
+			enc := toml.NewEncoder(f)
+			// go-toml v2 will use multi-line strings for strings with newlines
+			if err := enc.Encode(map[string]any{"test": tcs}); err != nil {
+				f.Close()
+				fmt.Printf("Failed to encode test cases for %s: %v\n", task.ID, err)
+				continue
+			}
+			f.Close()
+			fmt.Printf("Downloaded %d test cases for %s (%s) to %s.\n", len(tcs), label, task.ID, tomlPath)
 		} else {
 			fmt.Printf("No test cases found for %s (%s).\n", label, task.ID)
 		}
