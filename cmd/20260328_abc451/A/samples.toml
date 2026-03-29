@@ -1,0 +1,23 @@
+[[test]]
+input = """
+legal
+"""
+output = """
+Yes
+"""
+
+[[test]]
+input = """
+atcoder
+"""
+output = """
+No
+"""
+
+[[test]]
+input = """
+illegal
+"""
+output = """
+No
+"""
