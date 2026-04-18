@@ -1,0 +1,23 @@
+[[test]]
+input = """
+3 5
+"""
+output = """
+3
+"""
+
+[[test]]
+input = """
+1 7
+"""
+output = """
+7
+"""
+
+[[test]]
+input = """
+14 79
+"""
+output = """
+66
+"""

@@ -1,0 +1,24 @@
+[[test]]
+input = """
+6
+(xx)x
+x(xx)
+(x)x
+(xx)
+)x()x(
+)x()x(
+x
+(x)
+(((((xx)))))x
+x((((((((((xx))))))))))
+((xx)xx)xx
+(x((xx))x)(xx)
+"""
+output = """
+Yes
+No
+Yes
+No
+Yes
+Yes
+"""
