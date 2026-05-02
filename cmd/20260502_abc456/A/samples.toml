@@ -1,0 +1,15 @@
+[[test]]
+input = """
+15
+"""
+output = """
+Yes
+"""
+
+[[test]]
+input = """
+2
+"""
+output = """
+No
+"""

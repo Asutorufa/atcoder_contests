@@ -1,0 +1,15 @@
+[[test]]
+input = """
+abbc
+"""
+output = """
+11
+"""
+
+[[test]]
+input = """
+cabcabcbcaccacbcbcaabacbacaabccacbccbcacbacbacabcacabcaccaaaaabababcbabacaccabbcacbcbcbcababcbcbabca
+"""
+output = """
+378217423
+"""

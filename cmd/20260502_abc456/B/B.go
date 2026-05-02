@@ -1,0 +1,100 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"sort"
+)
+
+func main() {
+	sas := make([][]int, 3)
+	for i := range 3 {
+		sas[i] = make([]int, 6)
+	}
+
+	for i := range 3 {
+		for j := range 6 {
+			sas[i][j] = readInt()
+		}
+	}
+
+	ret := 0
+	sum := 0
+	for _, i := range sas[0] {
+		for _, j := range sas[1] {
+			for _, k := range sas[2] {
+				sum++
+				if (i == 4 && j == 5 && k == 6) ||
+					(i == 6 && j == 5 && k == 4) ||
+					(i == 5 && j == 4 && k == 6) ||
+					(i == 5 && j == 6 && k == 4) ||
+					(i == 4 && j == 6 && k == 5) ||
+					(i == 6 && j == 4 && k == 5) {
+					ret++
+				}
+
+			}
+		}
+	}
+
+	fmt.Printf("%.10f\n", float64(ret)/float64(sum))
+}
+
+var br = bufio.NewReader(os.Stdin)
+
+func readInt() int {
+	var x int
+	fmt.Fscan(br, &x)
+	return x
+}
+
+func readString() string {
+	var x string
+	fmt.Fscan(br, &x)
+	return x
+}
+
+func readX[T any]() T {
+	var x T
+	fmt.Fscan(br, &x)
+	return x
+}
+
+type IntHeap []int
+
+func (h IntHeap) Len() int           { return len(h) }
+func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *IntHeap) Push(x any) {
+	*h = append(*h, x.(int))
+}
+
+func (h *IntHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
+
+func insert(a []int, value int) []int {
+	i := sort.SearchInts(a, value)
+	a = append(a, 0)
+	copy(a[i+1:], a[i:])
+	a[i] = value
+	return a
+}
+
+func deleteLessOrEqual(a []int, value int) []int {
+	i := sort.Search(len(a), func(i int) bool {
+		return a[i] > value
+	})
+
+	if i <= 0 {
+		return a
+	}
+
+	return a[i:]
+}

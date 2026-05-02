@@ -1,0 +1,15 @@
+[[test]]
+input = """
+abbc
+"""
+output = """
+6
+"""
+
+[[test]]
+input = """
+cabcabcbcaccacbcbcaabacbacaabccacbccbcacbacbacabcacabcaccaaaaabababcbabacaccabbcacbcbcbcababcbcbabca
+"""
+output = """
+760
+"""
